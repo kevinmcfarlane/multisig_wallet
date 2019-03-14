@@ -68,7 +68,25 @@ contract("MultiSignatureWallet", accounts => {
           }, `Transferred amount should be ${expectedAmount}.`);
     });
 
-    it("reverts when too few approvers", async () => {
+    it("reverts transfer of funds to beneficiary due to insufficient approvals", async () => {
+        // Arrange
+        const [firstAccount, approver1, approver2, beneficiary] = accounts;
+        let approvers = [firstAccount, approver1, approver2];
+        let minNumberOfApprovers = 3;
+        let wallet = await MultiSignatureWallet.new(approvers, minNumberOfApprovers, beneficiary);
+        await wallet.donate({ from: firstAccount, value: 10 * FINNEY });
+        
+        // Get some approvers to approve
+        await wallet.approve(approver1);
+        await wallet.approve(approver2);
+        
+        // Act, Assert
+        await truffleAssert.reverts(
+            wallet.sendToBeneficiary(), 
+            "Not approved.");
+    });
+
+    it("reverts creation of contract when too few approvers", async () => {
         // Arrange
         const [approver1, beneficiary] = accounts;
         let approvers = [approver1];
@@ -78,5 +96,18 @@ contract("MultiSignatureWallet", accounts => {
         await truffleAssert.reverts(
             MultiSignatureWallet.new(approvers, minNumberOfApprovers, beneficiary), 
             "Number of approvers less than required number.");
+    });
+    
+    it("reverts approval when not approver", async () => {
+        // Arrange
+        const [approver1, somebody, beneficiary] = accounts;
+        let approvers = [approver1];
+        let minNumberOfApprovers = 1;
+        let wallet = await MultiSignatureWallet.new(approvers, minNumberOfApprovers, beneficiary);
+
+        // Act, Assert
+        await truffleAssert.reverts(
+            wallet.approve(somebody), 
+            "Not an approver.");
     });
 });
